@@ -131,7 +131,7 @@ addEventListener('click',e=>{if(e.target?.closest?.('button')&&!e.target.closest
 addEventListener('pointerover',e=>{if(e.target?.closest?.('button')&&!e.target.closest('button').disabled)Sound.play('hover')});
 addEventListener('visibilitychange',()=>{if(!Sound.ctx)return;if(document.hidden)Sound.ctx.suspend().catch(()=>{});else Sound.ctx.resume().catch(()=>{})});
 
-const names=['草原水管城','地下晶礦','雲端風車','巨木溪谷','熔岩古堡','冰原水道','蒸汽工廠','沙丘遺跡','旋風長橋','潮汐沉城','雲梯群島','黑曜機關堡'];let selected=0,mode='menu',players=[],world,elapsed=0,deaths=0,last=0,acc=0;const keys=new Set();
+const names=['草原水管城','地下晶礦','雲端風車','巨木溪谷','熔岩古堡','冰原水道','蒸汽工廠','沙丘遺跡','旋風長橋','潮汐沉城','雲梯群島','黑曜機關堡','赤焰巨像 · Boss','終焉魔王 · 極限 Boss'];let selected=0,mode='menu',players=[],world,elapsed=0,deaths=0,last=0,acc=0;const keys=new Set();
 const modeInfo={coop:{name:'跑酷訓練',desc:'純跑酷 · 合作機關 · 不計職業解鎖進度'},pve:{name:'PVE 合作打怪',desc:'12 種職業 · 5 種怪物 · 完成任務即可抵達終點，不必清怪'},pvp:{name:'PVP 雙人對戰',desc:'職業對決 · 每人 5 命 · 最後存活者獲勝'}};
 const arenaNames=['中央交鋒','雙塔跳台','階梯堡壘','浮空升降台'];
 let gameMode='pve',difficulty='normal',enemies=[],pendingEnemies=[],bullets=[],kills=0,scores=[0,0],resultLabel='';
@@ -370,7 +370,7 @@ function stageFloorY(level,section,j){const [entry,,exit]=elevationPlans[level][
 
 function battleRules(){return world?.battle||difficultyInfo[difficulty]}
 function enemiesCleared(){return gameMode!=='pve'||(kills===world.enemyTotal&&pendingEnemies.length===0&&enemies.every(e=>e.hp<=0))}
-function exitReady(){return !!world.bonusRoom||objectivesComplete()}
+function exitReady(){return (!world.boss||gameMode==='coop'||world.boss.hp<=0)&&(!!world.bonusRoom||objectivesComplete())}
 function objectivesComplete(){return (world.relays||[]).every(r=>r.active)}
 function relayReady(r){return !r.highOnly||r.mover.rect[1]<r.mover.baseY-35}
 function updateRelays(){for(const r of world.relays||[]){if(r.mover){r.rect[0]=r.mover.rect[0]+30;r.rect[1]=r.mover.rect[1]-30}if(!r.active&&relayReady(r)&&players.some(p=>alive(p)&&hit(p,r.rect))){r.active=true;Sound.play('unlock');burst(r.rect[0]+13,r.rect[1]+13,'#f6dc92',24)}}}
@@ -463,7 +463,9 @@ function addStageSetpiece(w,level,section,x,entry){
  if(level===10){lift(800,floorAt(7)-70,'y',55,100);lift(2250,floorAt(20)-80,'y',60,110);w.springs.push([x+1700,floorAt(15)-10,34,10]);w.decor.push({kind:'islands',x:x+800,y:entry})}
  if(level===11){for(const j of [5,16,21])w.firebars.push({x:x+j*112+56,y:floorAt(j)-50,r:70,phase:section+j,speed:section%2?-.9:.9});lift(2150,floorAt(19)-90,'x',110);w.decor.push({kind:'battlement',x:x+600,y:entry});}
 }
-const layouts=Array.from({length:names.length},(_,i)=>makeWorld(i));
+for(let i=12;i<14;i++){routes.push(['castle']);elevationPlans.push([[480,480,480]]);destinationNames.push(i===12?'巨像封印門':'終焉王座');missionInfo.push([names[i],i===12?'擊敗赤焰巨像；紅色預警區即將爆發，跳上高台閃避。':'極限挑戰：魔王三階段，重擊最多 10 HP。追蹤標記鎖定後立即離開！']);stageDesigns.push({...stageDesigns[i===12?4:11],label:missionInfo[i][1]})}
+function makeBossWorld(stage){const platforms=[[0,480,2200,900]];for(const [x,y,w] of [[320,410,160],[620,340,170],[940,410,160],[1260,340,170],[1600,410,160]]){const p=[x,y,w,20];p.oneWay=true;p.material='castle';platforms.push(p)}return {stage,width:2200,height:900,platforms,regions:[{x:0,w:2200,kind:'castle'}],spikes:[],locks:[],movers:[],blocks:[],water:[],lava:[],springs:[],branches:platforms.slice(1),enemyFloors:[platforms[0]],route:[[60,480],[2100,480]],relays:[],vents:[],landmarks:[{x:300,y:250,label:missionInfo[stage][0]}],goal:[2070,400,60,80],design:stageDesigns[stage],mission:missionInfo[stage],destination:destinationNames[stage]}}
+const layouts=Array.from({length:names.length},(_,i)=>i<12?makeWorld(i):makeBossWorld(i));
 function regionAt(x){if(world.bonusRoom&&x>=world.bonusRoom.start)return {kind:world.bonusRoom.kind,x:world.bonusRoom.start,w:world.bonusRoom.end-world.bonusRoom.start};return world.regions?.find(r=>x>=r.x&&x<r.x+r.w)||{kind:'factory',x:0,w:world.width}}
 function inWater(p){return (world.water||[]).some(r=>hit(p,r))}
 function updateTerrain(dt){
@@ -708,6 +710,7 @@ function update(dt){
 function respawnZones(){return [{x:80,y:444},...world.locks.map(l=>({x:l.gate[0]+38,y:l.floorY-36}))]}
 function safeEnemyFloor(f){return respawnZones().every(z=>Math.hypot(z.x-Math.max(f[0],Math.min(z.x,f[0]+f[2])),z.y-(f[1]-30))>=250)}
 function prepareEnemies(){
+ if(selected>=12){const final=selected===13,hp=(final?320:120)*(playerCount===2?1.6:1)*(difficulty==='easy'?.8:difficulty==='hard'?1.2:1);world.boss={id:0,type:'tank',boss:true,name:final?'終焉魔王':'赤焰巨像',final,x:1650,y:370,w:90,h:110,floor:world.platforms[0],hp,maxHp:hp,timer:2,cycle:0,phase:1,attacks:[],slow:0};enemies.push(world.boss);world.enemyTotal=1;return}
  const config=battleRules(),floors=world.enemyFloors.filter(safeEnemyFloor);if(!floors.length)return;
  for(let i=0;i<config.total;i++){
   const floor=floors[Math.floor(i*(floors.length-1)/Math.max(1,config.total-1))],type=config.pool[(i+selected)%config.pool.length],info=enemyTypes[type];
@@ -742,7 +745,7 @@ function updateEnemies(dt){
  const config=battleRules(),live=players.filter(alive);if(!live.length)return;
  const solids=[...world.platforms,...world.locks.filter(l=>!l.open).map(l=>l.gate)];
  for(const e of enemies){
-  if(e.hp<=0)continue;const info=enemyTypes[e.type],target=live.reduce((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)<Math.hypot(b.x-e.x,b.y-e.y)?a:b);
+  if(e.hp<=0)continue;if(e.boss){updateBoss(e,dt);continue}const info=enemyTypes[e.type],target=live.reduce((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)<Math.hypot(b.x-e.x,b.y-e.y)?a:b);
   e.slow=Math.max(0,(e.slow||0)-dt);e.frozen=Math.max(0,(e.frozen||0)-dt);if(e.frozen>0)continue;
   const step=dt*(e.slow>0?.4:1);e.timer-=step;e.jumpWait=Math.max(0,(e.jumpWait||0)-dt);
   const dx=target.x-e.x,near=Math.hypot(dx,target.y-e.y)<760;
@@ -776,8 +779,21 @@ function updateEnemies(dt){
   players.forEach((p,i)=>{if(alive(p)&&hit(p,[e.x,e.y,e.w,e.h]))damagePlayer(i,1)});
  }
 }
+function updateBoss(e,dt){
+ const live=players.filter(alive);if(!live.length)return;e.phase=e.final?(e.hp/e.maxHp<.3?3:e.hp/e.maxHp<.65?2:1):(e.hp/e.maxHp<.5?2:1);
+ e.slow=Math.max(0,(e.slow||0)-dt);e.frozen=Math.max(0,(e.frozen||0)-dt);const target=live.reduce((a,b)=>Math.abs(a.x-e.x)<Math.abs(b.x-e.x)?a:b);
+ if(e.frozen<=0){e.x+=Math.sign(target.x-e.x)*(e.final?85:55)*(e.slow>0?.45:1)*dt;e.x=Math.max(280,Math.min(1900,e.x));e.timer-=dt}
+ if(e.timer<=0){e.cycle++;const delay=e.final?1.05:.95,damage=e.final?6+e.phase:3+e.phase;
+ if(e.cycle%3===1){for(const p of live)e.attacks.push({rect:[Math.max(260,p.x-55),0,140,480],time:delay,life:.35,damage:damage+1})}
+ else if(e.cycle%3===2){e.attacks.push({rect:[260,440,1750,40],time:1.15,life:.3,damage});if(e.phase===3)e.attacks.push({rect:[260,440,1750,40],time:1.95,life:.3,damage})}
+ else{for(let n=0;n<(e.final?4:2);n++)e.attacks.push({rect:[330+n*390,0,130,480],time:delay+n*.22,life:.4,damage})}
+ e.timer=e.final?2.9-e.phase*.35:3.4;Sound.play('skill',{job:'berserker',player:0})}
+ for(const a of e.attacks){a.time-=dt;if(a.time<=0){a.life-=dt;players.forEach((p,i)=>{if(alive(p)&&hit(p,a.rect))damagePlayer(i,a.damage)})}}e.attacks=e.attacks.filter(a=>a.time>0||a.life>0);
+ players.forEach((p,i)=>{if(alive(p)&&hit(p,[e.x,e.y,e.w,e.h]))damagePlayer(i,e.final?7:3)})
+}
 function drawCombat(){
  for(const e of enemies){
+  if(e.boss){for(const a of e.attacks){ctx.fillStyle=a.time>0?'#ff775633':'#ffb84ad9';ctx.fillRect(...a.rect);ctx.strokeStyle='#ffb58b';ctx.strokeRect(...a.rect);if(a.time>0){ctx.fillStyle='#fff0cc';ctx.font='bold 15px system-ui';ctx.fillText('⚠ '+a.time.toFixed(1)+'s',a.rect[0]+12,Math.max(220,a.rect[1]-10))}}ctx.fillStyle=e.final?'#9b548f':'#d17a4d';roundBox(ctx,e.x,e.y,e.w,e.h,12,ctx.fillStyle);ctx.fillStyle='#ffe7a3';ctx.fillRect(e.x+16,e.y+24,18,9);ctx.fillRect(e.x+56,e.y+24,18,9);ctx.beginPath();ctx.moveTo(e.x,e.y+10);ctx.lineTo(e.x-15,e.y-35);ctx.lineTo(e.x+30,e.y);ctx.moveTo(e.x+60,e.y);ctx.lineTo(e.x+105,e.y-35);ctx.lineTo(e.x+90,e.y+10);ctx.fill();ctx.fillStyle='#211c32';ctx.fillRect(e.x-30,e.y-23,150,9);ctx.fillStyle='#f27b81';ctx.fillRect(e.x-30,e.y-23,150*Math.max(0,e.hp/e.maxHp),9);ctx.font='bold 16px system-ui';ctx.fillStyle='#ffe6b1';ctx.fillText(e.name+' · 階段 '+e.phase+' · '+Math.ceil(e.hp)+' HP',e.x-65,e.y-40);continue}
   const info=enemyTypes[e.type];ctx.fillStyle='#030c183d';ctx.beginPath();ctx.ellipse(e.x+15,e.floor[1]-1,20,4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=info.color;
   if(e.type==='slime'){ctx.beginPath();ctx.ellipse(e.x+15,e.y+17,17,14,0,0,Math.PI*2);ctx.fill()}
   else{roundBox(ctx,e.x,e.y,e.w,e.h,e.type==='tank'?4:9,info.color);if(e.type==='hopper'){ctx.fillRect(e.x+2,e.y-9,6,10);ctx.fillRect(e.x+22,e.y-9,6,10)}if(e.type==='scout'){ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x+15,e.y-10);ctx.lineTo(e.x+30,e.y);ctx.fill()}}

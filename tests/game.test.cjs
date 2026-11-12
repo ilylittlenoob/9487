@@ -49,7 +49,7 @@ gameMode='pve';selected=0;start();const expected=world.enemyTotal;difficulty='ha
 for(const stage of [1,3]){gameMode='coop';selected=stage;start();const room=world.bonusRoom,p=players[0];place(p,room.entrance[0]+10,room.entrance[1]+room.entrance[3]-36);keys.add(bindings[0].down);advance(1);keys.clear();assert.ok(p.x<room.start,'locked portal cannot enter');completeMissions();place(p,room.entrance[0]+10,room.entrance[1]+room.entrance[3]-36);keys.add(bindings[0].down);advance(1);keys.clear();assert.equal(p.x,room.spawn[0]);assert.equal(regionAt(p.x).kind,room.kind);advance(140);assert.equal(p.lives,10);const blocks=world.blocks.filter(b=>b.id.includes(':bonus:'));assert.equal(blocks.length,3);const before=wallet.coins;claimGoldBlock(blocks[0]);assert.equal(wallet.coins,before+1);place(p,room.exit[0]+10,room.floor-36);keys.add(bindings[0].down);advance(1);keys.clear();assert.equal(p.x,room.returnTo[0]);assert.equal(p.lives,10);start();assert.ok(world.blocks.find(b=>b.id===blocks[0].id).spent);assert.ok(!objectivesComplete(),'restart relocks room')}
 setPlayerCount(2);console.log('PASS: full lift cycles and jump-off/underside regression, exit without clearing living or queued monsters, locked bonus entrances, rewards and return portals');
 assert.equal(Object.keys(jobs).length,12);assert.equal(new Set(Object.values(jobs).map(j=>j.hp)).size,12);
-assert.equal(layouts.length,12);assert.ok(new Set(routes.flat()).size>=8);
+assert.equal(layouts.length,14);assert.ok(new Set(routes.flat()).size>=8);
 for(selected=0;selected<12;selected++){
  gameMode='coop';start();assert.equal(enemies.length,0);shoot(0);assert.equal(bullets.length,0);
  assert.ok(world.regions.length>=3);assert.ok(world.platforms.length>0);
@@ -233,7 +233,7 @@ for(const type of Object.keys(enemyTypes)){
  e.frozen=1;const frozenX=e.x;updateEnemies(.1);assert.equal(e.x,frozenX,'freeze still stops roaming');
 }
 world=savedWorld;
-const signatures=layouts.map(w=>JSON.stringify(w.route.slice(0,24).map(q=>q[1])));assert.equal(new Set(signatures).size,12,'twelve unique authored terrain contours');assert.equal(new Set(layouts.map(w=>w.design.style)).size,12,'twelve visual identities');assert.ok(layouts[8].crumbles.length>0);assert.ok(layouts[4].firebars.length>0);assert.ok(layouts[9].water.some(r=>r[2]>2000));
+const signatures=layouts.slice(0,12).map(w=>JSON.stringify(w.route.slice(0,24).map(q=>q[1])));assert.equal(new Set(signatures).size,12,'twelve unique authored terrain contours');assert.equal(new Set(layouts.slice(0,12).map(w=>w.design.style)).size,12,'twelve visual identities');assert.ok(layouts[8].crumbles.length>0);assert.ok(layouts[4].firebars.length>0);assert.ok(layouts[9].water.some(r=>r[2]>2000));
 gameMode='coop';selected=8;start();const cr=world.crumbles[0];place(players[0],cr.rect[0]+20,cr.rect[1]-36);advance(90);assert.ok(cr.reset>0,'standing on cracked bridge triggers fall');assert.ok(cr.rect[1]>cr.baseY);place(players[0],45,444);advance(400);assert.equal(cr.rect[1],cr.baseY,'bridge returns for retries');
 selected=4;start();const bar=world.firebars[0];elapsed=0;const angle=bar.phase;place(players[0],bar.x+Math.cos(angle)*36-14,bar.y+Math.sin(angle)*36-18);const barHP=players[0].hp;advance(1);assert.equal(players[0].hp,barHP-1,'fire wheel collision does damage');
 console.log('PASS: 12 unique ground silhouettes and visual identities; cracked bridge fall/reset; fire wheel damage; all 5 monsters roam, climb, descend, chase and respect freeze');
